@@ -5,6 +5,8 @@ var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
+app.use(express.static('./public'));
+
 var todoList = [
     {
         id: 1,
