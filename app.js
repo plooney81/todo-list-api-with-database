@@ -7,7 +7,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(express.static('./public'));
 
-const todoList = [
+let todoList = [
   {
     id: 1,
     todo: 'Implement a REST API',
