@@ -10,7 +10,7 @@ function getTodoHtml(todoData) {
   const html = `
       <li class="todo-item js-todo-item" data-id="${todoData.id}">
         <div class="todo-form">
-          <input type="text" class="todo-form-input" id="js-todo-item-${todoData.id}" value="${todoData.todo}" />
+          <input type="text" class="todo-form-input js-todo-item-${todoData.id}" value="${todoData.todo}" />
           <button class="todo-button save js-save-button" data-id="${todoData.id}" type="submit">Save</button>
         </div>
         <button class="todo-button delete js-delete-button" data-id="${todoData.id}" type="button">X</button>
