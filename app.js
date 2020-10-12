@@ -19,74 +19,90 @@ let todoList = [
 app.get('/api/todos', (req, res) => {
   db.Todo.findAll()
     .then((todos)=>{
-      res.status(200).json(todos);
+      console.log(todos);
+      res.json(todos); //express automatically defaults to 200
     })
     .catch((e)=>{
       res.status(500).json( {error: "A database error occurred"})
     })
-  res.json(todoList);
+  // res.json(todoList);
 });
 
 // GET /api/todos/:id
 app.get('/api/todos/:id', (req, res) => {
-  const todo =
-    todoList.find((todo) => {
-      return todo.id === Number.parseInt(req.params.id);
-    }) || {};
-  const status = Object.keys(todo).length ? 200 : 404;
-  res.status(status).json(todo);
+  const {id} = req.params;
+  db.Todo.findByPk(id)
+    .then(todo=>{
+      if(!todo){
+        res.status(404).json({error: `Could not find Todo with id: ${id}`})
+        return;
+      }
+      res.json(todo)
+    })
 });
 
 // POST /api/todos
 app.post('/api/todos', (req, res) => {
-  if (!req.body || !req.body.todo) {
+  if (!req.body || !req.body.name) {
     res.status(400).json({
       error: 'Provide todo text',
     });
     return;
   }
-  const prevId = todoList.reduce((prev, curr) => {
-    return prev > curr.id ? prev : curr.id;
-  }, 0);
-  const newTodo = {
-    id: prevId + 1,
-    todo: req.body.todo,
-  };
-  todoList.push(newTodo);
-  res.json(newTodo);
+
+  db.Todo.create({
+    name: req.body.name
+  })
+  .then((newTodo)=>{
+    res.json(newTodo);
+  })
+  .catch((e)=>{
+    res.status(500).json( {error: "A database error occurred"})
+  })
 });
 
 // PUT /api/todos/:id
 app.put('/api/todos/:id', (req, res) => {
-  if (!req.body || !req.body.todo) {
+  if (!req.body || !req.body.name) {
     res.status(400).json({
       error: 'Provide todo text',
     });
     return;
   }
-  let updatedTodo = {};
-  todoList.forEach((todo) => {
-    if (todo.id === Number.parseInt(req.params.id)) {
-      todo.todo = req.body.todo;
-      updatedTodo = todo;
-    }
-  });
-  const status = Object.keys(updatedTodo).length ? 200 : 404;
-  res.status(status).json(updatedTodo);
+  const { id } = req.params;
+  db.Todo.findByPk(id)
+    .then(todo =>{
+      if(!todo){
+        res.status(404).json({error: `Could not find Todo with id: ${id}`})
+        return;
+      }
+      todo.name = req.body.name;
+      todo.save();
+      res.json(todo);
+    })
+    .catch(e=>{
+      res.status(500).json( {error: "A database error occurred"})
+    })
 });
 
 // DELETE /api/todos/:id
 app.delete('/api/todos/:id', (req, res) => {
-  let found = false;
-  todoList = todoList.filter((todo) => {
-    if (todo.id === Number.parseInt(req.params.id)) {
-      found = true;
-      return false;
+  const { id } = req.params;
+  db.Todo.destroy({
+    where: {
+      id: id
     }
-    return true;
-  });
-  const status = found ? 200 : 404;
-  res.status(status).json(todoList);
+  })
+    .then(rowsDeleted =>{
+      if (rowsDeleted === 1){
+        res.status(204).json()
+      }else if(rowsDeleted === 0){
+        res.status(404).json({error: `Could not find Todo with id: ${id}`})
+      }
+    })
+    .catch(e=>{
+      res.status(500).json( {error: "A database error occurred"})
+    })
 });
 
 app.listen(3000, function () {
