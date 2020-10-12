@@ -1,6 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const db = require('./models');
+const es6Renderer = require('express-es6-template-engine');
+const bcrypt = require('bcrypt');
 
 const app = express();
 app.use(bodyParser.json());
@@ -8,12 +10,82 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(express.static('./public'));
 
-let todoList = [
-  {
-    id: 1,
-    todo: 'Implement a REST API',
-  },
-];
+app.engine('html', es6Renderer);
+app.set('views', 'templates');
+app.set('view engine', 'html');
+
+app.get('/register', (req, res)=>{
+  res.render('register',{
+    locals:{
+      error: null
+    }
+  });
+})
+
+app.get('/login', (req, res)=>{
+  res.render('login',{
+    locals:{
+      error: null
+    }
+  });
+})
+
+app.post('/login', (req, res)=>{
+  if(!req.body.email || !req.body.password){
+    res.render('login', {
+      locals: {
+        error: 'Please submit all required fields'
+      }
+    })
+    return;
+  }
+
+  db.User.findOne({
+    where: {
+      email:req.body.email
+    }
+  })
+    .then(user=>{
+      if(!user){
+        res.render('login', {
+          locals: {
+            error: 'No user with that email'
+          }
+        })
+        return;
+      }
+
+      bcrypt.compare(req.body.password, user.password, (err, matched) =>{
+        if (matched){
+          res.send('YOU LOGGED IN')
+        } else {
+          res.send('NOPE, WRONG PASSWORD')
+        }
+        return;
+      })
+    })
+})
+
+app.post('/register', (req, res)=>{
+  if(!req.body.email || !req.body.password){
+    res.render('register', {
+      locals: {
+        error: 'Please submit all required fields'
+      }
+    })
+    return;
+  }
+  const {email, password} = req.body;
+  bcrypt.hash(password, 10, (err, hash)=>{
+    db.User.create({
+      email: email,
+      password: hash
+    })
+    .then(user=>{
+      res.redirect('/login')
+    })
+  })
+})
 
 // GET /api/todos
 app.get('/api/todos', (req, res) => {
