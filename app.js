@@ -1,5 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const db = require('./models');
 
 const app = express();
 app.use(bodyParser.json());
@@ -16,6 +17,13 @@ let todoList = [
 
 // GET /api/todos
 app.get('/api/todos', (req, res) => {
+  db.Todo.findAll()
+    .then((todos)=>{
+      res.status(200).json(todos);
+    })
+    .catch((e)=>{
+      res.status(500).json( {error: "A database error occurred"})
+    })
   res.json(todoList);
 });
 
