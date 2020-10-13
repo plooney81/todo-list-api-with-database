@@ -10,7 +10,8 @@ function getTodoHtml(todoData) {
   const html = `
       <li class="todo-item js-todo-item" data-id="${todoData.id}">
         <div class="todo-form">
-          <input type="text" class="todo-form-input js-todo-item-${todoData.id}" value="${todoData.name}" />
+          <input type="text" class="${todoData.complete ? "completed": ''} todo-form-input js-todo-item-${todoData.id}" value="${todoData.name}" />
+          <button class="todo-button mark js-mark-button" data-id="${todoData.id}" type="submit">Mark</button>
           <button class="todo-button save js-save-button" data-id="${todoData.id}" type="submit">Save</button>
         </div>
         <button class="todo-button delete js-delete-button" data-id="${todoData.id}" type="button">X</button>
@@ -99,6 +100,18 @@ function deleteTodo(id) {
     });
 }
 
+const markTodo = (id)=>{
+  axios.put(`/api/todos/mark/${id}`)
+    .then((response)=>{
+      renderTodos();
+    })
+    .catch((error) => {
+      // see if the error has a message on the response and use that. If not, fall back to the default error.
+      const errorText = error.response.data.error || error;
+      // show an alert that contains a basic message, plus the error
+      alert('could not add todo:' + errorText);
+    })
+}
 /**
  * Update the todo with the given ID. Text will be updated based on the input matching the id. Displays an alert if there is an error in the request.
  * @param {integer} id The ID of the todo to be updated.
@@ -161,6 +174,13 @@ document.addEventListener('click', (e) => {
     // pass the id to the `updateTodo()` function
     updateTodo(id);
   }
+
+  if (e.target.classList.contains('js-mark-button')){
+    const id = e.target.dataset.id;
+    markTodo(id);
+    
+  }
+
 });
 
 // render the todos from the server onto the page

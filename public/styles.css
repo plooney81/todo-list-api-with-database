@@ -96,3 +96,7 @@ body {
   background-color: #c62828;
   color: #fff;
 }
+
+.completed {
+  text-decoration: line-through;
+}

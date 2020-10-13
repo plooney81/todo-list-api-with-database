@@ -3,16 +3,45 @@ const bodyParser = require('body-parser');
 const db = require('./models');
 const es6Renderer = require('express-es6-template-engine');
 const bcrypt = require('bcrypt');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const SequelizeStore = require('connect-session-sequelize')(session.Store);
 
+const store = new SequelizeStore({db: db.sequelize});
 const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(session({
+  secret: 'secret',
+  resave: false,
+  saveUninitialized: true,
+  store: store
+}))
+
+store.sync();
 
 app.use(express.static('./public'));
 
 app.engine('html', es6Renderer);
 app.set('views', 'templates');
 app.set('view engine', 'html');
+
+const checkAuth = (req, res, next) => {
+  if(req.session.user){
+    next();
+  }else{
+    res.redirect('/login');
+  }
+}
+
+app.get('/', checkAuth, (req, res) => {
+  res.render('index', {
+    locals: {
+      user: req.session.user
+    }
+  });
+})
 
 app.get('/register', (req, res)=>{
   res.render('register',{
@@ -31,6 +60,7 @@ app.get('/login', (req, res)=>{
 })
 
 app.post('/login', (req, res)=>{
+  // console.log('\n\nLogin triggered\n\n')
   if(!req.body.email || !req.body.password){
     res.render('login', {
       locals: {
@@ -57,9 +87,15 @@ app.post('/login', (req, res)=>{
 
       bcrypt.compare(req.body.password, user.password, (err, matched) =>{
         if (matched){
-          res.send('YOU LOGGED IN')
+          // res.send('YOU LOGGED IN')
+          req.session.user = user;
+          res.redirect('/');
         } else {
-          res.send('NOPE, WRONG PASSWORD')
+          res.render('login', {
+            locals: {
+              error: 'Incorrect password. Please try again.'
+            }
+          })
         }
         return;
       })
@@ -87,11 +123,27 @@ app.post('/register', (req, res)=>{
   })
 })
 
+app.get('/logout', (req, res) => {
+  req.session.user = null;
+  res.redirect('/login');
+})
+
+app.use('/api*', checkAuth);
+
 // GET /api/todos
 app.get('/api/todos', (req, res) => {
-  db.Todo.findAll()
+  db.Todo.findAll({
+    where: {
+      UserId: req.session.user.id
+    },
+    order:[
+      [
+        'id', 'ASC'
+      ]
+    ]
+  })
     .then((todos)=>{
-      console.log(todos);
+      // console.log(todos);
       res.json(todos); //express automatically defaults to 200
     })
     .catch((e)=>{
@@ -102,8 +154,13 @@ app.get('/api/todos', (req, res) => {
 
 // GET /api/todos/:id
 app.get('/api/todos/:id', (req, res) => {
-  const {id} = req.params;
-  db.Todo.findByPk(id)
+  const { id } = req.params;
+  db.Todo.findOne({
+    where: {
+      id: id,
+      UserId : req.session.user.id
+    }
+  })
     .then(todo=>{
       if(!todo){
         res.status(404).json({error: `Could not find Todo with id: ${id}`})
@@ -123,7 +180,8 @@ app.post('/api/todos', (req, res) => {
   }
 
   db.Todo.create({
-    name: req.body.name
+    name: req.body.name,
+    UserId: req.session.user.id
   })
   .then((newTodo)=>{
     res.json(newTodo);
@@ -142,7 +200,12 @@ app.put('/api/todos/:id', (req, res) => {
     return;
   }
   const { id } = req.params;
-  db.Todo.findByPk(id)
+  db.Todo.findOne({
+    where: {
+      id: id,
+      UserId : req.session.user.id
+    }
+  })
     .then(todo =>{
       if(!todo){
         res.status(404).json({error: `Could not find Todo with id: ${id}`})
@@ -162,7 +225,8 @@ app.delete('/api/todos/:id', (req, res) => {
   const { id } = req.params;
   db.Todo.destroy({
     where: {
-      id: id
+      id: id,
+      UserId : req.session.user.id
     }
   })
     .then(rowsDeleted =>{
@@ -176,6 +240,33 @@ app.delete('/api/todos/:id', (req, res) => {
       res.status(500).json( {error: "A database error occurred"})
     })
 });
+
+// Path for marking if completed
+app.put('/api/todos/mark/:id', (req, res)=>{
+  const {id} = req.params;
+  db.Todo.findOne({
+    where: {
+      id: id,
+      UserId: req.session.user.id
+    }
+  })
+    .then(todo=>{
+      if(!todo){
+        res.status(404).json({error: `Could not find Todo with id: ${id}`})
+        return;
+      } else if(!todo.complete){
+        todo.complete = true;
+      } else{
+        todo.complete = false;
+      }
+      todo.save();
+      res.json(todo);
+    })
+    .catch(e=>{
+      res.status(500).json({error: "A database error occurred"})
+    })
+})
+
 
 app.listen(3000, function () {
   console.log('Todo List API is now listening on port 3000...');
